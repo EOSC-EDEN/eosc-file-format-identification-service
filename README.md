@@ -188,9 +188,47 @@ Uncomment the `tika` service block in `docker-compose.yml` and set `FFIS_TIKA_EN
 
 ## Running tests
 
+### Unit tests (no Siegfried required)
+
+The orchestrator logic tests use stub engines and run without any external binaries.
+
 ```bash
-pip install -e ".[dev]"
-pytest
+pip install -e ".[dev]" --ignore-requires-python   # Python 3.9 users: add this flag
+pytest tests/ -v -k "TestOrchestratorConflictResolution"
+```
+
+### Full test suite
+
+```bash
+pytest tests/ -v
+```
+
+API integration tests instantiate the real FastAPI app. Without Siegfried installed,
+identification results will have `outcome: failure` but the tests will still pass —
+they verify the response schema, not the identification accuracy.
+
+### Manual smoke tests (service running)
+
+Start the service first (`docker compose up --build` or `uvicorn ffis.main:app --reload`), then:
+
+```bash
+# Liveness
+curl http://localhost:8000/health
+
+# Engine availability
+curl http://localhost:8000/tools
+
+# Identify a file by upload
+curl -X POST http://localhost:8000/identify \
+  -F "file=@/etc/os-release"
+
+# Identify with a claimed MIME type (triggers mismatch check)
+curl -X POST http://localhost:8000/identify \
+  -F "file=@/etc/os-release" \
+  -F "claimed_mimetype=application/pdf"
+
+# Interactive API docs
+open http://localhost:8000/docs
 ```
 
 ---
