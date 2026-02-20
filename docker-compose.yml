@@ -1,0 +1,39 @@
+services:
+
+  ffis:
+    build: .
+    image: eosc-ffis:latest
+    ports:
+      - "8000:8000"
+    environment:
+      FFIS_SIEGFRIED_BINARY: sf
+      FFIS_MAGIKA_ENABLED: "true"
+      FFIS_TIKA_ENABLED: "false"
+      FFIS_CACHE_ENABLED: "true"
+      FFIS_CACHE_DB_PATH: /data/ffis_cache.db
+    volumes:
+      # Persistent cache
+      - ffis-cache:/data
+      # Shared read-only volume for by-reference input mode (FFIS-REQ-4-01).
+      # Mount your TDA storage here so the service can identify files in-place
+      # without copying them over the network.
+      # - /mnt/tda-storage:/mnt/tda-storage:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Optional Apache Tika sidecar — enable by setting FFIS_TIKA_ENABLED=true
+  # and uncommenting this block.
+  #
+  # tika:
+  #   image: apache/tika:latest
+  #   ports:
+  #     - "9998:9998"
+  #   restart: unless-stopped
+
+volumes:
+  ffis-cache:
