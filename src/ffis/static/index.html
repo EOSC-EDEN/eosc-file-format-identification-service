@@ -295,6 +295,44 @@
   const errorDiv   = document.getElementById('error');
   const tryAgain   = document.getElementById('try-again');
 
+  // ── Friendly names for tools ───────────────────────────────────────────────
+  const TOOL_LABELS = {
+    siegfried: 'Byte Signature Analysis',
+    magika:    'AI Content Analysis',
+    tika:      'Document Content Analysis',
+  };
+
+  // ── Human-readable outcome explanations ───────────────────────────────────
+  const OUTCOME_DESC = {
+    success: 'The format was identified with high confidence.',
+    warning: 'The format was identified but with some uncertainty — for example, the file extension did not match the file content.',
+    failure: 'The format could not be reliably identified.',
+  };
+
+  // ── Human-readable warning codes ──────────────────────────────────────────
+  function friendlyWarning(code, message) {
+    if (code === 'EXTENSION_MISMATCH')
+      return 'The file extension did not match the actual file content. The format was identified by analysing the file itself, not its name.';
+    if (code === 'MULTIPLE_MATCHES')
+      return 'More than one possible format was found. The most likely match is shown above.';
+    if (code === 'NO_MATCH')
+      return 'None of the identification engines could match this file to a known format.';
+    return message;
+  }
+
+  // ── Human-readable identification method ──────────────────────────────────
+  function friendlyMethod(method) {
+    const map = {
+      'byte signature':    'matched by byte signature',
+      'container signature': 'matched by container structure',
+      'xml structure':     'matched by XML structure',
+      'ai/probabilistic':  'identified by AI content analysis',
+      'mime magic':        'matched by MIME magic bytes',
+      'extension':         'matched by file extension',
+    };
+    return map[method] || method;
+  }
+
   browseLink.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => {
     if (fileInput.files[0]) identifyFile(fileInput.files[0]);
@@ -332,11 +370,7 @@
     try {
       const resp = await fetch('/identify', { method: 'POST', body: form });
       const data = await resp.json();
-
-      if (!resp.ok) {
-        throw new Error(data.detail || `HTTP ${resp.status}`);
-      }
-
+      if (!resp.ok) throw new Error(data.detail || `HTTP ${resp.status}`);
       renderResult(file, data);
     } catch (err) {
       errorDiv.textContent = '✗ ' + (err.message || 'Something went wrong. Please try again.');
@@ -358,22 +392,31 @@
     const outcome = d.provenance?.outcome || 'unknown';
     const primary = d.primary_identifier;
 
-    // Header badge
+    // ── Header badge + outcome explanation ──────────────────────────────────
     const badgeClass = outcome === 'success' ? 'badge-success'
                      : outcome === 'warning' ? 'badge-warning' : 'badge-failure';
     document.getElementById('result-header').innerHTML =
       `📋 Identification Result &nbsp;<span class="badge ${badgeClass}">${outcome}</span>`;
 
-    // Primary format name
+    // ── Primary format name — combine name + MIME for context ────────────────
     const toolWithName = d.provenance?.tools?.find(t => t.format_name);
-    const formatName = toolWithName?.format_name || primary?.value || 'Unknown format';
+    const rawName = toolWithName?.format_name || primary?.value || 'Unknown format';
     const formatVersion = toolWithName?.format_version ? ` ${toolWithName.format_version}` : '';
-    document.getElementById('format-name').textContent = formatName + formatVersion;
+    const mimeId = d.identifiers?.find(i => i.scheme === 'MIME');
+    // If format name looks like a bare short code (no spaces, ≤ 10 chars), enrich it with MIME
+    const isBareName = rawName.length <= 10 && !rawName.includes(' ');
+    const displayName = (isBareName && mimeId)
+      ? `${rawName.toUpperCase()} (${mimeId.value})`
+      : rawName + formatVersion;
+    document.getElementById('format-name').textContent = displayName;
 
-    const basis = d.basis ? `Identified by ${d.basis}` : '';
-    document.getElementById('format-sub').textContent = basis;
+    // ── Outcome explanation ──────────────────────────────────────────────────
+    const basisText = d.basis ? `Identified by ${friendlyMethod(d.basis)}` : '';
+    const outcomeText = OUTCOME_DESC[outcome] || '';
+    document.getElementById('format-sub').textContent =
+      [basisText, outcomeText].filter(Boolean).join(' · ');
 
-    // Identifier chips
+    // ── Identifier chips (clickable PRONOM links) ────────────────────────────
     const grid = document.getElementById('id-grid');
     grid.innerHTML = '';
     const allIds = d.identifiers?.length ? d.identifiers : (primary ? [primary] : []);
@@ -391,7 +434,7 @@
       grid.appendChild(chip);
     });
 
-    // File meta
+    // ── File meta ────────────────────────────────────────────────────────────
     const checksum = d.checksum_sha256
       ? `<b>SHA-256:</b> <span style="font-family:monospace;font-size:.82rem">${d.checksum_sha256.slice(0,16)}…</span>`
       : '';
@@ -400,34 +443,40 @@
        <span><b>Size:</b> ${fmt_bytes(d.filesize ?? file.size)}</span>
        ${checksum ? `<span>${checksum}</span>` : ''}`;
 
-    // Warnings
+    // ── Warnings (plain English) ─────────────────────────────────────────────
     if (d.warnings?.length) {
       const wb = document.getElementById('warnings-body');
       wb.innerHTML = d.warnings.map(w =>
-        `<div class="warning-item"><b>${w.code}:</b> ${w.message}</div>`
+        `<div class="warning-item">${friendlyWarning(w.code, w.message)}</div>`
       ).join('');
-      document.getElementById('warnings-card').style.display = '';
+      document.getElementById('warnings-card').style.display = 'block';
     }
 
-    // Tool breakdown
+    // ── Tool breakdown (friendly names, friendly methods) ────────────────────
     const tb = document.getElementById('tool-breakdown');
     tb.innerHTML = '';
     (d.provenance?.tools || []).forEach(tool => {
       const row = document.createElement('div');
       row.className = 'tool-row';
 
-      const ids = (tool.identifiers || []).map(i =>
-        `<span class="tool-id-tag">${i.scheme}: ${i.value}</span>`
-      ).join('');
+      const friendly = TOOL_LABELS[tool.name];
+      const label = friendly ? `${friendly} <span style="font-weight:400;color:#888">(${tool.name}${tool.version ? ' v'+tool.version : ''})</span>` : tool.name;
+
+      const ids = (tool.identifiers || []).map(i => {
+        const linkHtml = i.uri
+          ? `<a href="${i.uri}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline dotted">${i.value}</a>`
+          : i.value;
+        return `<span class="tool-id-tag">${i.scheme}: ${linkHtml}</span>`;
+      }).join('');
 
       const detail = [
         tool.format_name ? `<b>${tool.format_name}${tool.format_version ? ' ' + tool.format_version : ''}</b>` : null,
-        tool.method ? `via ${tool.method}` : null,
-        tool.error ? `<span style="color:#c00">Error: ${tool.error}</span>` : null,
+        tool.method ? friendlyMethod(tool.method) : null,
+        tool.error ? `<span style="color:#c00">Could not complete: ${tool.error}</span>` : null,
       ].filter(Boolean).join(' · ');
 
       row.innerHTML = `
-        <div class="tool-name">${tool.name}${tool.version ? ' <span style="font-weight:400;color:#888">v'+tool.version+'</span>' : ''}</div>
+        <div class="tool-name" style="display:flex;align-items:baseline;gap:.4rem">${label}</div>
         ${detail ? `<div class="tool-detail">${detail}</div>` : ''}
         ${ids ? `<div class="tool-ids">${ids}</div>` : ''}
       `;
