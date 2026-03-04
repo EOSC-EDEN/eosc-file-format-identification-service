@@ -1,14 +1,17 @@
 # ── Stage 1: download Siegfried binary ────────────────────────────────────────
 FROM debian:bookworm-slim AS siegfried-dl
 
-ARG SIEGFRIED_VERSION=1.11.1
+ARG SIEGFRIED_VERSION=1.11.4
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+# Releases use dashes in the version string and ship as .zip (e.g. siegfried_1-11-4_linux64.zip)
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates unzip \
+    && SF_VER_DASHES="$(echo ${SIEGFRIED_VERSION} | tr '.' '-')" \
     && curl -fsSL \
-       "https://github.com/richardlehane/siegfried/releases/download/v${SIEGFRIED_VERSION}/siegfried_${SIEGFRIED_VERSION}_linux64.tar.gz" \
-       -o /tmp/sf.tar.gz \
-    && tar -xzf /tmp/sf.tar.gz -C /usr/local/bin sf \
-    && chmod +x /usr/local/bin/sf
+       "https://github.com/richardlehane/siegfried/releases/download/v${SIEGFRIED_VERSION}/siegfried_${SF_VER_DASHES}_linux64.zip" \
+       -o /tmp/sf.zip \
+    && unzip /tmp/sf.zip sf -d /usr/local/bin \
+    && chmod +x /usr/local/bin/sf \
+    && rm /tmp/sf.zip
 
 # ── Stage 2: Python application ───────────────────────────────────────────────
 FROM python:3.11-slim AS app
@@ -24,13 +27,13 @@ RUN sf -update || true
 # Install Python deps
 WORKDIR /app
 COPY pyproject.toml .
+COPY src/ ./src/
 RUN pip install --no-cache-dir ".[dev]"
 
-# Copy source
-COPY src/ ./src/
-
 # Non-root user for runtime
-RUN useradd -m ffis && chown -R ffis:ffis /app /root/.siegfried
+RUN useradd -m ffis \
+    && mkdir -p /root/.siegfried \
+    && chown -R ffis:ffis /app /root/.siegfried
 USER ffis
 
 EXPOSE 8000

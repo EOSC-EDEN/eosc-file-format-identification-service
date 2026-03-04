@@ -29,24 +29,30 @@ Digital archives cannot reliably migrate, render, or emulate files without knowi
 
 ## Quick start
 
-### Docker (recommended)
+### Container (recommended)
+
+One command — builds the image, downloads PRONOM signatures, and starts the service:
 
 ```bash
 docker compose up --build
+# or, if you use Podman:
+podman compose up --build
 ```
 
-The API is available at `http://localhost:8000`.
-Interactive docs at `http://localhost:8000/docs`.
+- Frontend: http://localhost:8000
+- API docs: http://localhost:8000/docs
+- Health check: http://localhost:8000/health
 
 ### Local (development)
 
 Requires Python 3.11+ and the `sf` binary on `$PATH`.
 
 ```bash
-# Install Siegfried (https://www.itforarchivists.com/siegfried)
-# Linux example:
-curl -fsSL https://github.com/richardlehane/siegfried/releases/download/v1.11.1/siegfried_1.11.1_linux64.tar.gz \
-  | tar -xzf - -C /usr/local/bin sf
+# Install Siegfried — download the zip for your platform from:
+# https://github.com/richardlehane/siegfried/releases
+# Linux example (adjust version/arch as needed):
+curl -fsSL https://github.com/richardlehane/siegfried/releases/download/v1.11.4/siegfried_1-11-4_linux64.zip \
+  -o /tmp/sf.zip && unzip /tmp/sf.zip sf -d /usr/local/bin && rm /tmp/sf.zip
 sf -update
 
 # Install the service
