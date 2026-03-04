@@ -42,7 +42,10 @@ async def identify_by_value(
     cache = request.app.state.cache
     orchestrator = request.app.state.orchestrator
 
-    content = await file.read()
+    max_bytes = request.app.state.settings.max_upload_bytes
+    content = await file.read(max_bytes + 1)
+    if len(content) > max_bytes:
+        raise HTTPException(status_code=413, detail=f"File too large. Maximum size is {max_bytes // (1024*1024)} MB.")
     sha256 = _sha256(content)
 
     if cache:
@@ -82,20 +85,32 @@ async def identify_by_path(
     from pathlib import Path
 
     path = body.path
+    allowed_prefixes = request.app.state.settings.allowed_path_prefixes
 
-    # Basic path validation — prevent trivial traversal attempts
+    # Path traversal protection — resolve to absolute path then check whitelist
     try:
-        resolved = str(Path(path).resolve())
+        resolved = Path(path).resolve()
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid path: {exc}") from exc
+        raise HTTPException(status_code=400, detail="Invalid path.") from exc
+
+    if not allowed_prefixes:
+        raise HTTPException(status_code=403, detail="By-reference mode is not enabled on this server.")
+
+    if not any(resolved.is_relative_to(Path(p)) for p in allowed_prefixes):
+        raise HTTPException(status_code=403, detail="Path is outside the allowed directories.")
+
+    if not resolved.is_file():
+        raise HTTPException(status_code=400, detail="Path does not point to a regular file.")
 
     cache = request.app.state.cache
     orchestrator = request.app.state.orchestrator
 
+    resolved_str = str(resolved)
+
     # Compute checksum for cache lookup without reading twice
     if cache:
         try:
-            with open(resolved, "rb") as fh:
+            with open(resolved_str, "rb") as fh:
                 sha256 = hashlib.sha256(fh.read()).hexdigest()
             hit = await cache.get(sha256)
             if hit:
@@ -104,7 +119,7 @@ async def identify_by_path(
             pass  # let the orchestrator surface the error properly
 
     result = await orchestrator.identify_path(
-        resolved,
+        resolved_str,
         claimed_mimetype=body.claimed_mimetype,
         claimed_puid=body.claimed_puid,
     )

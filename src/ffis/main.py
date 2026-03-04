@@ -51,6 +51,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     engines = _build_engines()
     app.state.engines = engines
     app.state.orchestrator = Orchestrator(engines)
+    app.state.settings = settings
 
     if settings.cache_enabled:
         cache = IdentificationCache(settings.cache_db_path)

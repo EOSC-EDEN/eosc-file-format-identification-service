@@ -25,6 +25,17 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
+    # Security
+    max_upload_bytes: int = 100 * 1024 * 1024  # 100 MB
+    allowed_path_prefixes: list[str] = []  # e.g. ["/mnt/storage"] — empty = deny all
+
+    @field_validator("allowed_path_prefixes", mode="before")
+    @classmethod
+    def parse_prefixes(cls, v: object) -> list[str]:
+        if isinstance(v, str):
+            return [p.strip() for p in v.split(",") if p.strip()]
+        return v
+
     # Registry resolution hierarchy — highest priority first.
     # A PRONOM PUID (specific signature match) overrules a MIME guess.
     registry_hierarchy: list[str] = ["PRONOM", "LOC", "WIKIDATA", "MIME"]
