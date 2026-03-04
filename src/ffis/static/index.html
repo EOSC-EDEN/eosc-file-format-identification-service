@@ -308,7 +308,7 @@
 
   async function identifyFile(file) {
     dropZone.style.display = 'none';
-    spinner.style.display = '';
+    spinner.style.display = 'block';
     resultDiv.style.display = 'none';
     errorDiv.style.display = 'none';
     tryAgain.style.display = 'none';
@@ -327,10 +327,10 @@
       renderResult(file, data);
     } catch (err) {
       errorDiv.textContent = '✗ ' + (err.message || 'Something went wrong. Please try again.');
-      errorDiv.style.display = '';
+      errorDiv.style.display = 'block';
     } finally {
       spinner.style.display = 'none';
-      tryAgain.style.display = '';
+      tryAgain.style.display = 'block';
     }
   }
 
@@ -421,7 +421,7 @@
       tb.appendChild(row);
     });
 
-    resultDiv.style.display = '';
+    resultDiv.style.display = 'block';
   }
 </script>
 </body>
