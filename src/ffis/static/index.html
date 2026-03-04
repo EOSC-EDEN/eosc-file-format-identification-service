@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>File Format Identification — EOSC EDEN</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f6f8;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 1.2rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 600; }
+    header span { font-size: 0.85rem; opacity: 0.6; }
+
+    main {
+      flex: 1;
+      max-width: 780px;
+      width: 100%;
+      margin: 2.5rem auto;
+      padding: 0 1.5rem;
+    }
+
+    /* Drop zone */
+    #drop-zone {
+      border: 2.5px dashed #b0b8cc;
+      border-radius: 12px;
+      background: #fff;
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+    #drop-zone.drag-over {
+      border-color: #4f6ef7;
+      background: #f0f3ff;
+    }
+    #drop-zone .icon { font-size: 2.8rem; margin-bottom: .75rem; }
+    #drop-zone p { color: #555; font-size: 1rem; }
+    #drop-zone p strong { color: #4f6ef7; cursor: pointer; }
+    #file-input { display: none; }
+
+    /* Spinner */
+    #spinner {
+      display: none;
+      text-align: center;
+      padding: 2.5rem;
+    }
+    .spin {
+      width: 44px; height: 44px;
+      border: 4px solid #e0e4f0;
+      border-top-color: #4f6ef7;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Result card */
+    #result { display: none; margin-top: 2rem; }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.07);
+      margin-bottom: 1.25rem;
+      overflow: hidden;
+    }
+    .card-header {
+      padding: .85rem 1.25rem;
+      font-weight: 600;
+      font-size: .95rem;
+      background: #f8f9fc;
+      border-bottom: 1px solid #eaecf2;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .card-body { padding: 1.25rem; }
+
+    /* Outcome badge */
+    .badge {
+      display: inline-block;
+      padding: .25rem .7rem;
+      border-radius: 999px;
+      font-size: .78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-warning { background: #fef9c3; color: #854d0e; }
+    .badge-failure { background: #fee2e2; color: #991b1b; }
+
+    /* Primary result */
+    .primary-format { font-size: 1.5rem; font-weight: 700; margin-bottom: .5rem; }
+    .primary-sub { color: #555; font-size: .95rem; margin-bottom: 1rem; }
+
+    .id-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: .75rem;
+    }
+    .id-chip {
+      background: #f0f3ff;
+      border-radius: 8px;
+      padding: .6rem .9rem;
+    }
+    .id-chip .scheme {
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #4f6ef7;
+      margin-bottom: .2rem;
+    }
+    .id-chip .value { font-size: .92rem; font-family: monospace; }
+    .id-chip a { color: inherit; text-decoration: underline dotted; }
+
+    /* File meta */
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem 2rem;
+      font-size: .88rem;
+      color: #444;
+    }
+    .meta-row span b { color: #1a1a2e; }
+
+    /* Tool breakdown */
+    .tool-row {
+      padding: .75rem 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .tool-row:last-child { border-bottom: none; }
+    .tool-name { font-weight: 600; font-size: .9rem; margin-bottom: .3rem; }
+    .tool-detail { font-size: .83rem; color: #555; }
+    .tool-ids { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .4rem; }
+    .tool-id-tag {
+      background: #f5f6f8;
+      border: 1px solid #e0e4f0;
+      border-radius: 6px;
+      padding: .2rem .55rem;
+      font-size: .78rem;
+      font-family: monospace;
+    }
+
+    /* Warnings */
+    .warning-item {
+      background: #fffbeb;
+      border-left: 3px solid #f59e0b;
+      padding: .6rem .9rem;
+      border-radius: 0 6px 6px 0;
+      font-size: .87rem;
+      margin-bottom: .5rem;
+    }
+
+    /* Error */
+    #error {
+      display: none;
+      background: #fee2e2;
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-top: 1.5rem;
+      color: #991b1b;
+      font-size: .93rem;
+    }
+
+    /* Try again */
+    #try-again {
+      display: none;
+      margin-top: 1.5rem;
+      text-align: center;
+    }
+    button.try-again-btn {
+      background: #4f6ef7;
+      color: #fff;
+      border: none;
+      padding: .7rem 1.8rem;
+      border-radius: 8px;
+      font-size: .95rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button.try-again-btn:hover { background: #3a57d4; }
+
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: .8rem;
+      color: #999;
+    }
+    footer a { color: #4f6ef7; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>File Format Identification</h1>
+    <span>EOSC EDEN · Multi-engine PRONOM / MIME / Wikidata identification</span>
+  </div>
+</header>
+
+<main>
+
+  <div id="drop-zone">
+    <div class="icon">📄</div>
+    <p>Drag &amp; drop a file here, or <strong id="browse-link">browse to upload</strong></p>
+    <p style="margin-top:.5rem;font-size:.83rem;color:#888">Any file type · Results in seconds</p>
+    <input type="file" id="file-input" />
+  </div>
+
+  <div id="spinner">
+    <div class="spin"></div>
+    <p style="color:#555">Identifying file…</p>
+  </div>
+
+  <div id="error"></div>
+
+  <div id="result">
+
+    <div class="card">
+      <div class="card-header" id="result-header">📋 Identification Result</div>
+      <div class="card-body">
+        <div class="primary-format" id="format-name"></div>
+        <div class="primary-sub" id="format-sub"></div>
+        <div class="id-grid" id="id-grid"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">📁 File Details</div>
+      <div class="card-body">
+        <div class="meta-row" id="file-meta"></div>
+      </div>
+    </div>
+
+    <div id="warnings-card" class="card" style="display:none">
+      <div class="card-header">⚠️ Warnings</div>
+      <div class="card-body" id="warnings-body"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">🔬 Tool Breakdown</div>
+      <div class="card-body" id="tool-breakdown"></div>
+    </div>
+
+  </div>
+
+  <div id="try-again">
+    <button class="try-again-btn" id="try-again-btn">Identify another file</button>
+  </div>
+
+</main>
+
+<footer>
+  <a href="/docs" target="_blank">API Documentation</a> ·
+  <a href="https://github.com/EOSC-EDEN/eosc-file-format-identification-tool" target="_blank">Source Code</a>
+</footer>
+
+<script>
+  const dropZone   = document.getElementById('drop-zone');
+  const fileInput  = document.getElementById('file-input');
+  const browseLink = document.getElementById('browse-link');
+  const spinner    = document.getElementById('spinner');
+  const resultDiv  = document.getElementById('result');
+  const errorDiv   = document.getElementById('error');
+  const tryAgain   = document.getElementById('try-again');
+
+  browseLink.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) identifyFile(fileInput.files[0]);
+  });
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) identifyFile(e.dataTransfer.files[0]);
+  });
+
+  document.getElementById('try-again-btn').addEventListener('click', reset);
+
+  function reset() {
+    fileInput.value = '';
+    dropZone.style.display = '';
+    spinner.style.display = 'none';
+    resultDiv.style.display = 'none';
+    errorDiv.style.display = 'none';
+    tryAgain.style.display = 'none';
+  }
+
+  async function identifyFile(file) {
+    dropZone.style.display = 'none';
+    spinner.style.display = '';
+    resultDiv.style.display = 'none';
+    errorDiv.style.display = 'none';
+    tryAgain.style.display = 'none';
+
+    const form = new FormData();
+    form.append('file', file);
+
+    try {
+      const resp = await fetch('/identify', { method: 'POST', body: form });
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        throw new Error(data.detail || `HTTP ${resp.status}`);
+      }
+
+      renderResult(file, data);
+    } catch (err) {
+      errorDiv.textContent = '✗ ' + (err.message || 'Something went wrong. Please try again.');
+      errorDiv.style.display = '';
+    } finally {
+      spinner.style.display = 'none';
+      tryAgain.style.display = '';
+    }
+  }
+
+  function fmt_bytes(n) {
+    if (n == null) return '—';
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return (n/1024).toFixed(1) + ' KB';
+    return (n/1048576).toFixed(2) + ' MB';
+  }
+
+  function renderResult(file, d) {
+    const outcome = d.provenance?.outcome || 'unknown';
+    const primary = d.primary_identifier;
+
+    // Header badge
+    const badgeClass = outcome === 'success' ? 'badge-success'
+                     : outcome === 'warning' ? 'badge-warning' : 'badge-failure';
+    document.getElementById('result-header').innerHTML =
+      `📋 Identification Result &nbsp;<span class="badge ${badgeClass}">${outcome}</span>`;
+
+    // Primary format name
+    const toolWithName = d.provenance?.tools?.find(t => t.format_name);
+    const formatName = toolWithName?.format_name || primary?.value || 'Unknown format';
+    const formatVersion = toolWithName?.format_version ? ` ${toolWithName.format_version}` : '';
+    document.getElementById('format-name').textContent = formatName + formatVersion;
+
+    const basis = d.basis ? `Identified by ${d.basis}` : '';
+    document.getElementById('format-sub').textContent = basis;
+
+    // Identifier chips
+    const grid = document.getElementById('id-grid');
+    grid.innerHTML = '';
+    const allIds = d.identifiers?.length ? d.identifiers : (primary ? [primary] : []);
+    const seen = new Set();
+    allIds.forEach(id => {
+      const key = id.scheme + ':' + id.value;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const chip = document.createElement('div');
+      chip.className = 'id-chip';
+      const valHtml = id.uri
+        ? `<a href="${id.uri}" target="_blank" rel="noopener">${id.value}</a>`
+        : id.value;
+      chip.innerHTML = `<div class="scheme">${id.scheme}</div><div class="value">${valHtml}</div>`;
+      grid.appendChild(chip);
+    });
+
+    // File meta
+    const checksum = d.checksum_sha256
+      ? `<b>SHA-256:</b> <span style="font-family:monospace;font-size:.82rem">${d.checksum_sha256.slice(0,16)}…</span>`
+      : '';
+    document.getElementById('file-meta').innerHTML =
+      `<span><b>Filename:</b> ${d.filename || file.name}</span>
+       <span><b>Size:</b> ${fmt_bytes(d.filesize ?? file.size)}</span>
+       ${checksum ? `<span>${checksum}</span>` : ''}`;
+
+    // Warnings
+    if (d.warnings?.length) {
+      const wb = document.getElementById('warnings-body');
+      wb.innerHTML = d.warnings.map(w =>
+        `<div class="warning-item"><b>${w.code}:</b> ${w.message}</div>`
+      ).join('');
+      document.getElementById('warnings-card').style.display = '';
+    }
+
+    // Tool breakdown
+    const tb = document.getElementById('tool-breakdown');
+    tb.innerHTML = '';
+    (d.provenance?.tools || []).forEach(tool => {
+      const row = document.createElement('div');
+      row.className = 'tool-row';
+
+      const ids = (tool.identifiers || []).map(i =>
+        `<span class="tool-id-tag">${i.scheme}: ${i.value}</span>`
+      ).join('');
+
+      const detail = [
+        tool.format_name ? `<b>${tool.format_name}${tool.format_version ? ' ' + tool.format_version : ''}</b>` : null,
+        tool.method ? `via ${tool.method}` : null,
+        tool.error ? `<span style="color:#c00">Error: ${tool.error}</span>` : null,
+      ].filter(Boolean).join(' · ');
+
+      row.innerHTML = `
+        <div class="tool-name">${tool.name}${tool.version ? ' <span style="font-weight:400;color:#888">v'+tool.version+'</span>' : ''}</div>
+        ${detail ? `<div class="tool-detail">${detail}</div>` : ''}
+        ${ids ? `<div class="tool-ids">${ids}</div>` : ''}
+      `;
+      tb.appendChild(row);
+    });
+
+    resultDiv.style.display = '';
+  }
+</script>
+</body>
+</html>

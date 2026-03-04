@@ -7,8 +7,11 @@ Bootstraps engines, orchestrator, and cache, then starts the FastAPI server.
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from . import __version__
 from .api.routes import router
@@ -86,6 +89,9 @@ app.add_middleware(
 )
 
 app.include_router(router, tags=["Identification"])
+
+_static = Path(__file__).parent / "static"
+app.mount("/", StaticFiles(directory=_static, html=True), name="static")
 
 
 def cli() -> None:
