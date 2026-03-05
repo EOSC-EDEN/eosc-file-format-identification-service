@@ -142,23 +142,40 @@
     }
     .meta-row span b { color: #1a1a2e; }
 
-    /* Tool breakdown */
-    .tool-row {
-      padding: .75rem 0;
+    /* Tool breakdown table */
+    .tool-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .86rem;
+    }
+    .tool-table th {
+      text-align: left;
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #4f6ef7;
+      padding: .4rem .75rem .4rem 0;
+      border-bottom: 2px solid #eaecf2;
+      white-space: nowrap;
+    }
+    .tool-table td {
+      padding: .65rem .75rem .65rem 0;
       border-bottom: 1px solid #f0f0f0;
+      vertical-align: top;
     }
-    .tool-row:last-child { border-bottom: none; }
-    .tool-name { font-weight: 600; font-size: .9rem; margin-bottom: .3rem; }
-    .tool-detail { font-size: .83rem; color: #555; }
-    .tool-ids { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .4rem; }
-    .tool-id-tag {
-      background: #f5f6f8;
-      border: 1px solid #e0e4f0;
-      border-radius: 6px;
-      padding: .2rem .55rem;
-      font-size: .78rem;
+    .tool-table tr:last-child td { border-bottom: none; }
+    .tool-table .col-tool { font-weight: 600; color: #1a1a2e; }
+    .tool-table .col-tool small { display: block; font-weight: 400; color: #888; font-size: .78rem; }
+    .tool-table .col-format { color: #333; }
+    .tool-table .col-format small { display: block; color: #888; font-size: .78rem; }
+    .tool-table .col-id {
       font-family: monospace;
+      font-size: .82rem;
+      color: #1a1a2e;
     }
+    .tool-table .col-id a { color: inherit; text-decoration: underline dotted; }
+    .tool-table .col-id.empty { color: #ccc; }
 
     /* Warnings */
     .warning-item {
@@ -452,36 +469,83 @@
       document.getElementById('warnings-card').style.display = 'block';
     }
 
-    // ── Tool breakdown (friendly names, friendly methods) ────────────────────
+    // ── Tool breakdown — aligned table ───────────────────────────────────────
     const tb = document.getElementById('tool-breakdown');
     tb.innerHTML = '';
-    (d.provenance?.tools || []).forEach(tool => {
-      const row = document.createElement('div');
-      row.className = 'tool-row';
+    const tools = d.provenance?.tools || [];
 
-      const friendly = TOOL_LABELS[tool.name];
-      const label = friendly ? `${friendly} <span style="font-weight:400;color:#888">(${tool.name}${tool.version ? ' v'+tool.version : ''})</span>` : tool.name;
+    // Collect all identifier schemes present across all tools (preserve order)
+    const schemeOrder = ['PRONOM', 'MIME', 'LOC', 'WIKIDATA'];
+    const schemes = [];
+    tools.forEach(t => (t.identifiers || []).forEach(i => {
+      if (!schemes.includes(i.scheme)) schemes.push(i.scheme);
+    }));
+    // Put known schemes first, then any others
+    const orderedSchemes = [
+      ...schemeOrder.filter(s => schemes.includes(s)),
+      ...schemes.filter(s => !schemeOrder.includes(s)),
+    ];
 
-      const ids = (tool.identifiers || []).map(i => {
-        const linkHtml = i.uri
-          ? `<a href="${i.uri}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline dotted">${i.value}</a>`
-          : i.value;
-        return `<span class="tool-id-tag">${i.scheme}: ${linkHtml}</span>`;
-      }).join('');
+    const table = document.createElement('table');
+    table.className = 'tool-table';
 
-      const detail = [
-        tool.format_name ? `<b>${tool.format_name}${tool.format_version ? ' ' + tool.format_version : ''}</b>` : null,
-        tool.method ? friendlyMethod(tool.method) : null,
-        tool.error ? `<span style="color:#c00">Could not complete: ${tool.error}</span>` : null,
-      ].filter(Boolean).join(' · ');
-
-      row.innerHTML = `
-        <div class="tool-name" style="display:flex;align-items:baseline;gap:.4rem">${label}</div>
-        ${detail ? `<div class="tool-detail">${detail}</div>` : ''}
-        ${ids ? `<div class="tool-ids">${ids}</div>` : ''}
-      `;
-      tb.appendChild(row);
+    // Header row
+    const thead = table.createTHead();
+    const hrow = thead.insertRow();
+    ['Tool', 'Format identified', ...orderedSchemes, 'Method'].forEach(h => {
+      const th = document.createElement('th');
+      th.textContent = h;
+      hrow.appendChild(th);
     });
+
+    // Data rows
+    const tbody = table.createTBody();
+    tools.forEach(tool => {
+      const tr = tbody.insertRow();
+
+      // Tool name cell
+      const friendly = TOOL_LABELS[tool.name];
+      const td0 = tr.insertCell();
+      td0.className = 'col-tool';
+      td0.innerHTML = friendly
+        ? `${friendly}<small>(${tool.name}${tool.version ? ' v'+tool.version : ''})</small>`
+        : tool.name;
+
+      // Format cell
+      const td1 = tr.insertCell();
+      td1.className = 'col-format';
+      if (tool.error) {
+        td1.innerHTML = `<span style="color:#c00">Could not complete: ${tool.error}</span>`;
+      } else if (tool.format_name) {
+        td1.innerHTML = tool.format_name
+          + (tool.format_version ? `<small>${tool.format_version}</small>` : '');
+      } else {
+        td1.textContent = '—';
+      }
+
+      // One cell per scheme
+      const idMap = {};
+      (tool.identifiers || []).forEach(i => { idMap[i.scheme] = i; });
+      orderedSchemes.forEach(scheme => {
+        const td = tr.insertCell();
+        const id = idMap[scheme];
+        td.className = 'col-id' + (id ? '' : ' empty');
+        if (id) {
+          td.innerHTML = id.uri
+            ? `<a href="${id.uri}" target="_blank" rel="noopener">${id.value}</a>`
+            : id.value;
+        } else {
+          td.textContent = '—';
+        }
+      });
+
+      // Method cell
+      const tdm = tr.insertCell();
+      tdm.className = 'col-format';
+      tdm.textContent = tool.method ? friendlyMethod(tool.method) : '—';
+    });
+
+    tb.appendChild(table);
 
     resultDiv.style.display = 'block';
   }

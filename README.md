@@ -39,6 +39,14 @@ docker compose up --build
 podman compose up --build
 ```
 
+If you have previously built the image and run into permission errors with Siegfried signatures, do a clean rebuild:
+
+```bash
+podman compose build --no-cache && podman compose up
+# or with Docker:
+docker compose build --no-cache && docker compose up
+```
+
 - Frontend: http://localhost:8000
 - API docs: http://localhost:8000/docs
 - Health check: http://localhost:8000/health

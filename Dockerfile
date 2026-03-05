@@ -19,21 +19,19 @@ FROM python:3.11-slim AS app
 # Copy Siegfried binary
 COPY --from=siegfried-dl /usr/local/bin/sf /usr/local/bin/sf
 
-# Update PRONOM signatures at build time so the image ships with a current sig file.
-# The signature file is written to ~/.siegfried/; set HOME so it lands predictably.
-ENV HOME=/root
+# Create non-root user early so Siegfried signatures are downloaded into their home dir.
+# Siegfried uses XDG paths (~/.local/share/siegfried/) so HOME must be set correctly.
+RUN useradd -m ffis
+ENV HOME=/home/ffis
 RUN sf -update || true
 
-# Install Python deps
+# Install Python deps (runs as root; output owned by root, fixed below)
 WORKDIR /app
 COPY pyproject.toml .
 COPY src/ ./src/
-RUN pip install --no-cache-dir ".[dev]"
+RUN pip install --no-cache-dir ".[dev]" \
+    && chown -R ffis:ffis /app
 
-# Non-root user for runtime
-RUN useradd -m ffis \
-    && mkdir -p /root/.siegfried \
-    && chown -R ffis:ffis /app /root/.siegfried
 USER ffis
 
 EXPOSE 8000
