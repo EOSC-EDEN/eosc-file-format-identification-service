@@ -453,7 +453,7 @@
 
     // ── File meta ────────────────────────────────────────────────────────────
     const checksum = d.checksum_sha256
-      ? `<b>SHA-256:</b> <span style="font-family:monospace;font-size:.82rem">${d.checksum_sha256.slice(0,16)}…</span>`
+      ? `<b>SHA-256:</b> <span style="font-family:monospace;font-size:.82rem">${d.checksum_sha256}</span>`
       : '';
     document.getElementById('file-meta').innerHTML =
       `<span><b>Filename:</b> ${d.filename || file.name}</span>
