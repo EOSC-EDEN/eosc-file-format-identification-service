@@ -179,6 +179,38 @@ The keywords MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted a
 }
 ```
 
+## Traceability to EOSC EDEN Interoperability Requirements
+
+This section maps FFIS requirements to the upstream requirements identified in EOSC EDEN T2.1, derived from the EOSC Interoperability Framework and discipline-specific user stories.
+
+### QUALITY-TECHNICAL-REQ-006 (Mandatory)
+*File formats must be documented.*
+Addressed by: FFIS-REQ-2-01 (registry mapping), FFIS-REQ-2-02 (MIME reporting), FFIS-REQ-2-03 (machine-actionable output), FFIS-REQ-3-02 (full provenance)
+
+### QUALITY-TECHNICAL-REQ-007 (Mandatory)
+*There must exist tools that can identify the file format.*
+Addressed by: FFIS-REQ-1-01 (binary signature identification), FFIS-REQ-1-04 (multiple engine integration), FFIS-REQ-3-05 (unidentified format flagging)
+
+### QUALITY-TECHNICAL-REQ-008 (Mandatory)
+*Granularity, file format versions and profiles, must exist when applicable.*
+Addressed by: FFIS-REQ-1-03 (version/profile granularity)
+
+### QUALITY-TECHNICAL-REQ-015 (Mandatory)
+*Technical metadata must be used for identifying essential technical characteristics in digital objects.*
+Addressed by: FFIS-REQ-3-01 (basis of identification), FFIS-REQ-3-02 (full provenance including tool output)
+
+### INTEROPERABILITY-TECHNICAL-REQ-035 (Mandatory)
+*Producers and consumers want to access services that publish both general-purpose and domain-specific format policies.*
+Addressed by: FFIS-REQ-1-04 (broad engine coverage), FFIS-REQ-2-01 (multi-registry mapping)
+
+### DISCIPLINE-SPECIFIC-REQ-007 (Mandatory)
+*As a research data consumer, I would like to re-use datasets with file formats that have high levels of interoperability.*
+Addressed by: FFIS-REQ-1-03 (format granularity), FFIS-REQ-3-04 (extension mismatch warnings)
+
+### DISCIPLINE-SPECIFIC-REQ-017 (Mandatory)
+*As a research data consumer, I will base my understanding of the data on the available information on structure, format, and technical details of the data that is preserved, in the form of technical metadata.*
+Addressed by: FFIS-REQ-2-01 (registry identifiers), FFIS-REQ-2-03 (structured output), FFIS-REQ-3-02 (provenance)
+
 ## References
 
 1. EOSC Interoperability Framework: Guidelines for semantic and technical interoperability in the European Open Science Cloud.
