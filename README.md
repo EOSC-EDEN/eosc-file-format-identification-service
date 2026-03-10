@@ -247,6 +247,20 @@ open http://localhost:8000/docs
 
 ---
 
+## Specification
+
+The full FFIS specification lives in [`SPECIFICATION.md`](SPECIFICATION.md). It is the source of truth and should be edited directly in GitHub via pull requests.
+
+A Google Docs-compatible `.docx` export is also committed for convenience. To regenerate it after editing the spec:
+
+```bash
+./export-spec.sh
+```
+
+This requires [pandoc](https://pandoc.org/installing.html). If pandoc is not installed locally, the script falls back to Docker/Podman automatically.
+
+---
+
 ## Specification conformance
 
 | Requirement                                      | Status                           |
