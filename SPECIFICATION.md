@@ -28,7 +28,7 @@ This service can be utilized at the "Ingest" phase of the OAIS model. The output
 ### In scope
 
 * **Identification methodology:** Identification of file formats based on internal binary signatures (magic numbers) and structural analysis (e.g., offset signatures and XML structure).
-* **Container-based formats:** Structural analysis of container formats (e.g., ZIP, OLE2, TAR) to distinguish specific application formats (e.g., .docx, .epub, .apk) from generic archive files. The service MUST parse container structures (like ZIP or OLE2) to identify if the file is a specific format (e.g., distinguishing a .docx or .epub from a generic .zip). If a container does not match a specific application profile, it MUST be identified by its generic format (e.g., x-fmt/263 for ZIP).
+* **Container-based formats:** Structural analysis of container formats (e.g., ZIP, OLE2, TAR) to distinguish specific application formats (e.g., .docx, .epub, .apk) from generic archive files. The service MUST parse container structures (like ZIP or OLE2) to identify if the file is a specific format (e.g., distinguishing a .docx or .epub from a generic .zip). If a container does not match a specific application profile, it MUST be identified by its generic format (e.g., x-fmt/263 for ZIP). Container identification SHOULD inspect container metadata (e.g., ZIP central directory records) rather than extracting the full archive contents, as archives in domains such as bioinformatics and life sciences can be very large.
 * **Bulk analysis** of multiple local files.
 * **Granular identification** of specific format versions (e.g., PDF 1.7) and profiles (e.g., PDF/A-1b).
 * **Orchestration** of multiple identification tools to maximize coverage and accuracy.
@@ -46,7 +46,8 @@ This service can be utilized at the "Ingest" phase of the OAIS model. The output
     * A technical property is considered "Characterization" (out of scope) unless its presence results in a distinct identifier (e.g., PUID) within the reference registry (PRONOM). For example, while "Encryption" might be a metadata property for some formats, if PRONOM assigns a specific PUID to "Encrypted PDF" (e.g., fmt/754), detecting it becomes a matter of Identification (in scope).
 * **Fixity:** Checksum calculation is assumed to be handled by the storage layer or a separate microservice.
 * **Content-policy compliance:** Indication of whether a file follows the content-policy of the submitter.
-* **Recursive content analysis (extraction):** The service identifies the digital object as provided. It does not automatically extract or identify individual files contained within archive formats (e.g., ZIP, TAR, ISO) unless those files constitute a specific format profile (as per "Container-based formats" in scope).
+* **Recursive content analysis (extraction):** The service identifies the digital object as provided. It does not automatically extract or identify individual files contained within archive formats (e.g., ZIP, TAR, ISO) unless those files constitute a specific format profile (as per "Container-based formats" in scope). Note that some identification tools (e.g., DROID) support configurable recursive inspection of archive contents; exposing such settings is an implementation concern and not mandated by this specification.
+* **Registry contribution:** Curating or submitting new file format signatures to external registries (e.g., PRONOM, Apache Tika) is not the responsibility of the FFIS. However, the service should facilitate such contributions by supporting export of unidentified format reports (see Requirement Group 3 and Non-normative Guidance). Coordination of registry contributions is expected to be handled by the relevant EDEN work packages (e.g., WP1 for registry liaison, WP3 for collecting domain-specific format requirements).
 
 ## Core Preservation Processes
 
@@ -76,6 +77,7 @@ The keywords MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted a
     * E.g., on a web server, a MIME type is typically defined by the host of the file, and may contain things like `application/xyz` (no validation is mandatory) which does not provide useful information.
 * **{{ FFIS-REQ-1-03 }}** The Service MUST identify formats to the highest possible level of granularity, including specific versions (e.g., TIFF 6.0) and profiles (e.g., GeoTIFF) where distinguishable.
 * **{{ FFIS-REQ-1-04 }}** The Service SHOULD integrate multiple distinct identification engines (e.g., Siegfried, DROID, Apache Tika) to ensure broad coverage of legacy, scientific, and proprietary formats. (CPP-008)
+* **{{ FFIS-REQ-1-05 }}** The Service MAY allow the caller to specify which identification methods or engines to apply for a given request (e.g., binary signature only, container analysis only). When no preference is specified, the Service MUST apply its default set of identification methods.
 
 ### Requirement Group 2 – Registry and Standardization
 
@@ -83,6 +85,7 @@ The keywords MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted a
     * Each reported identifier MUST include both the Value (e.g., `fmt/412`) and the Registry/Scheme name (e.g., PRONOM).
     * The Service SHOULD include a persistent URI for the identified format or the registry entry (e.g., `https://www.nationalarchives.gov.uk/pronom/fmt/412`) where available.
     * The PRONOM Unique Identifier (PUID) is the recommended primary identifier.
+    * If the Service operates offline or cannot reach an external registry, it SHOULD still attempt identification using locally available signature databases. Where a format can be identified by an integrated tool but no persistent registry identifier can be assigned, the result MUST indicate this partial state (see CPP outcome "Warning / partial success").
 * **{{ FFIS-REQ-2-02 }}** The Service MUST report the Internet Media Type (MIME type) for identified files to ensure compatibility with web-based access systems.
 * **{{ FFIS-REQ-2-03 }}** The Service output MUST be machine-actionable (e.g., JSON, XML) to facilitate automated preservation workflows and reporting. Identifiers MUST be structured in a way that separates the Value, Scheme, and (optionally) URI into distinct fields to allow for easy parsing.
 
@@ -95,6 +98,7 @@ The keywords MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted a
     * Implementers should define a hierarchy (e.g., PRONOM > Wikidata > MIME). A specific signature match (PUID) SHOULD overrule a probabilistic match or a generic media type.
 * **{{ FFIS-REQ-3-04 }}** The Service MUST generate a warning or error flag if the identified format differs significantly from the file extension or any user-supplied format metadata (if provided), provided that the reference registry (such as PRONOM or Unix file) defines valid extensions for the identified format.
 * **{{ FFIS-REQ-3-05 }}** The Service MUST flag files that cannot be matched to any registry entry as "unidentified" and classify them as high preservation risk.
+* **{{ FFIS-REQ-3-06 }}** The Service SHOULD support export of unidentified format reports in a structured, machine-actionable format to facilitate submission to external registries (e.g., PRONOM, Apache Tika). The export SHOULD include the file's binary signature characteristics, size, and any partial identification results.
 
 ### Requirement Group 4 – Integration and Interface
 
@@ -151,7 +155,11 @@ The keywords MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted a
     * *Chaining:* A central workflow engine (e.g., Apache Airflow or a local script) should calculate the file path once and pass that path to each service sequentially using the "By Reference" input mode (FFIS-REQ-4-01).
     * This approach allows multiple distinct services to analyze the same digital object without any redundant network transfer or data duplication.
 
-* **Unidentified Format Reporting:** The service should support exporting cases where file formats could not be identified or could not be assigned a persistent unique identifier from registries. This export should be structured in a way that facilitates reporting to registry maintainers (e.g., PRONOM, Apache Tika). Contributing to registries is out of scope for the FFIS itself, but the service should facilitate such contributions.
+* **Container Identification Performance:** For container-based identification, implementations should prefer inspecting container metadata (e.g., ZIP central directory, OLE2 directory entries) over full extraction. For example, PRONOM supports container-based identification by reading embedded file entries without extracting the entire archive. This is critical for domains like bioinformatics where compressed archives can be very large. Tools such as DROID that support configurable recursion depth into archives should default to non-recursive mode, with deeper inspection available as an opt-in.
+
+* **Unidentified Format Reporting:** The service should support exporting cases where file formats could not be identified or could not be assigned a persistent unique identifier from registries. This export should be structured in a way that facilitates reporting to registry maintainers (e.g., filing issues on the PRONOM GitHub, contributing signatures to Apache Tika). Contributing to registries is out of scope for the FFIS itself, but the service should facilitate such contributions. In practice, WP3 may collect domain-specific format identification requirements and hand them to WP1 for contribution to registries, as WP1 has existing contacts with the PRONOM team and Tika maintainers.
+
+* **Offline Operation:** The service may be deployed in environments with limited or no internet connectivity (e.g., locally on a laptop). In such scenarios, identification should rely on locally bundled signature databases. Results where a format is recognised by a tool but cannot be mapped to a persistent registry identifier should be clearly flagged as partial identifications rather than failures.
 
 ### Example of Structured Identification Output
 
