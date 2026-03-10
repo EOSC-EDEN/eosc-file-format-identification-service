@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-INPUT="SPECIFICATION.md"
+INPUT="docs/specification.md"
 OUTPUT="${1:-File Format Identification Service.docx}"
 REFERENCE="reference.docx"
 TMPINPUT=".export-spec-tmp.md"
@@ -33,7 +33,7 @@ cat > "$TMPINPUT" << 'NOTICE'
 > **NOTE: This document has been exported from GitHub and is read-only.**
 > As per agreement with EOSC EDEN WP3, for user acceptance testing, this specification has moved to GitHub.
 > The source of truth is now:
-> https://github.com/EOSC-EDEN/eosc-file-format-identification-tool/blob/main/SPECIFICATION.md
+> https://github.com/EOSC-EDEN/eosc-file-format-identification-tool/blob/main/docs/specification.md
 > To comment or suggest changes, please open an issue or pull request.
 > A `.docx` export can be generated locally by running `./export-spec.sh` from the repository root.
 
