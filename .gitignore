@@ -1,3 +1,11 @@
 File Format Identification Service.docx
 SPECIFICATION.docx
 .export-spec-tmp.md
+
+# Python
+__pycache__/
+*.egg-info/
+.venv/
+
+# Pytest
+.pytest_cache/

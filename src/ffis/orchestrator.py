@@ -45,6 +45,8 @@ _METHOD_PRIORITY: list[IdentificationMethod] = [
 # Identifiers that represent "no useful identification"
 _GENERIC_VALUES = {"application/octet-stream", "text/plain", "UNKNOWN"}
 
+_DIGIPRES_EXT_PREFIX = "https://www.digipres.org/formats/extensions/#*"
+
 
 def _registry_rank(scheme: str, hierarchy: list[str]) -> int:
     try:
@@ -282,9 +284,20 @@ class Orchestrator:
             tools=tool_results,
         )
 
+        # Extract file extension and build digipres.org link
+        extension: str | None = None
+        extension_url: str | None = None
+        if filename:
+            ext = Path(filename).suffix.lower()
+            if ext:
+                extension = ext
+                extension_url = f"{_DIGIPRES_EXT_PREFIX}{ext}"
+
         return IdentificationResult(
             filename=filename,
             filesize=filesize,
+            extension=extension,
+            extension_url=extension_url,
             checksum_sha256=checksum,
             identifiers=all_identifiers,
             primary_identifier=primary_identifier,

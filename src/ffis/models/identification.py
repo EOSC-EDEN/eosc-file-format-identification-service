@@ -71,6 +71,8 @@ class IdentificationResult(BaseModel):
 
     filename: Optional[str] = None
     filesize: Optional[int] = None
+    extension: Optional[str] = None          # e.g. ".pdf", ".nt"
+    extension_url: Optional[str] = None      # digipres.org link for the extension
     checksum_sha256: Optional[str] = None
 
     # All identifiers collected across all tools, deduplicated
