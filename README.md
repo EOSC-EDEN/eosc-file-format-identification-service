@@ -249,7 +249,7 @@ open http://localhost:8000/docs
 
 ## Specification
 
-The full FFIS specification lives in [`SPECIFICATION.md`](SPECIFICATION.md). It is the source of truth and should be edited directly in GitHub via pull requests.
+The full FFIS specification lives in [`docs/specification.md`](docs/specification.md). It is the source of truth and should be edited directly in GitHub via pull requests.
 
 To export a Google Docs-compatible `.docx` version:
 
