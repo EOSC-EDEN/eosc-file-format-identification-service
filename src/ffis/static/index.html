@@ -467,12 +467,16 @@
        ${checksum ? `<span>${checksum}</span>` : ''}`;
 
     // ── Warnings (plain English) ─────────────────────────────────────────────
+    const warningsCard = document.getElementById('warnings-card');
+    const wb = document.getElementById('warnings-body');
     if (d.warnings?.length) {
-      const wb = document.getElementById('warnings-body');
       wb.innerHTML = d.warnings.map(w =>
         `<div class="warning-item">${friendlyWarning(w.code, w.message)}</div>`
       ).join('');
-      document.getElementById('warnings-card').style.display = 'block';
+      warningsCard.style.display = 'block';
+    } else {
+      wb.innerHTML = '';
+      warningsCard.style.display = 'none';
     }
 
     // ── Tool breakdown — aligned table ───────────────────────────────────────
